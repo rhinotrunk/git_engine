@@ -194,7 +194,8 @@ public sealed class CommitTests
         {
             Attributes = new JsonObject { ["title"] = "Facade study", ["markdown"] = "Try 1.2 m panels on the south side." },
         });
-        var result = await s.Service.CommitAsync(s.Repo, TestData.Commit("Add note", s.Head, note) with
+        await s.BranchAsync("agent/notes");
+        var result = await s.Service.CommitAsync(s.Repo, TestData.Commit("agent/notes", "Add note", s.Head, new[] { note }) with
         {
             Author = TestData.Bot, Meta = new() { ["agent.session"] = "abc123" },
         });

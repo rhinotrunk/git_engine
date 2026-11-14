@@ -8,7 +8,7 @@ Each question has the default the prototype uses, so work can continue until it 
 2. **Deployment.** Central server only, or local-first repos that sync? *Prototype:* central server. Content-addressed ids keep local-first possible later.
 3. **Multiple documents.** When do we need more than `doc = "main"`? Do linked blocks or worksessions map to documents? *Prototype:* the API carries `doc` everywhere; only `main` is used.
 4. **Auth and identity.** Who may read and write which repos and branches? How are agents identified? *Prototype:* no auth; `author.id` and `author.kind` are self-declared.
-5. **Branch protection.** Which branches require passing checks (annotations) before a merge? *Prototype:* none enforced.
+5. **Branch protection.** Which branches require passing checks (annotations) before a merge? *Prototype:* `policy.protectedBranches` (default `main`): agents cannot commit to them and every merge into them needs a human approval ([BACKEND_CHANGES.md](BACKEND_CHANGES.md)). Required checks are not enforced yet. Should humans be allowed to commit to `main` directly (allowed today)?
 
 ## Data model
 

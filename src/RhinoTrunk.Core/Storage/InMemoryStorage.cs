@@ -29,6 +29,26 @@ public sealed class InMemoryRepositoryStore(string name, DateTimeOffset created)
     public IRefStore Refs { get; } = new InMemoryRefStore();
     public IAnnotationStore Annotations { get; } = new InMemoryAnnotationStore();
     public IDerivedStore Derived { get; } = new InMemoryDerivedStore();
+    public IMetaStore Meta { get; } = new InMemoryMetaStore();
+}
+
+public sealed class InMemoryMetaStore : IMetaStore
+{
+    private readonly ConcurrentDictionary<string, byte[]> _items = new(StringComparer.Ordinal);
+
+    public Task<byte[]?> GetAsync(string key, CancellationToken ct = default) =>
+        Task.FromResult(_items.TryGetValue(key, out var v) ? v : null);
+
+    public Task SetAsync(string key, byte[]? value, CancellationToken ct = default)
+    {
+        if (value is null) _items.TryRemove(key, out _);
+        else _items[key] = value;
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyList<string>> ListAsync(string prefix, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<string>>(_items.Keys.Where(k => k.StartsWith(prefix, StringComparison.Ordinal))
+            .OrderBy(k => k, StringComparer.Ordinal).ToList());
 }
 
 public sealed class InMemoryObjectStore : IObjectStore

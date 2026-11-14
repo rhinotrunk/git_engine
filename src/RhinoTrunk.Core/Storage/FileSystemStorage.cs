@@ -14,6 +14,7 @@ namespace RhinoTrunk.Core.Storage;
 ///                 reflog.jsonl              append-only ref history
 ///                 annotations/&lt;hex&gt;.jsonl  per commit
 ///                 derived/&lt;hex&gt;/&lt;recipe&gt;.json
+///                 meta/&lt;escaped key&gt;.json   branch metadata, policy, approvals
 /// </code>
 /// Ref updates are serialized per repository inside one process. Running several server
 /// processes against the same directory is not supported (see docs/OPEN_QUESTIONS.md).
@@ -82,6 +83,7 @@ public sealed class FileSystemRepositoryStore : IRepositoryStore
         Refs = new FileSystemRefStore(Path.Combine(dir, "refs.json"), Path.Combine(dir, "reflog.jsonl"));
         Annotations = new FileSystemAnnotationStore(Path.Combine(dir, "annotations"));
         Derived = new FileSystemDerivedStore(Path.Combine(dir, "derived"));
+        Meta = new FileSystemMetaStore(Path.Combine(dir, "meta"));
     }
 
     public string Name { get; }
@@ -90,6 +92,40 @@ public sealed class FileSystemRepositoryStore : IRepositoryStore
     public IRefStore Refs { get; }
     public IAnnotationStore Annotations { get; }
     public IDerivedStore Derived { get; }
+    public IMetaStore Meta { get; }
+}
+
+/// <summary>One file per key: <c>meta/&lt;url-escaped key&gt;.json</c> ("branch%2Fagent%2Fstudy.json").</summary>
+public sealed class FileSystemMetaStore(string dir) : IMetaStore
+{
+    private string PathFor(string key) => Path.Combine(dir, Uri.EscapeDataString(key) + ".json");
+
+    public async Task<byte[]?> GetAsync(string key, CancellationToken ct = default)
+    {
+        var path = PathFor(key);
+        return File.Exists(path) ? await File.ReadAllBytesAsync(path, ct) : null;
+    }
+
+    public async Task SetAsync(string key, byte[]? value, CancellationToken ct = default)
+    {
+        var path = PathFor(key);
+        if (value is null)
+        {
+            if (File.Exists(path)) File.Delete(path);
+            return;
+        }
+        await FileUtil.WriteAtomicAsync(path, value, ct);
+    }
+
+    public Task<IReadOnlyList<string>> ListAsync(string prefix, CancellationToken ct = default)
+    {
+        if (!Directory.Exists(dir)) return Task.FromResult<IReadOnlyList<string>>([]);
+        var keys = Directory.EnumerateFiles(dir, "*.json")
+            .Select(f => Uri.UnescapeDataString(Path.GetFileNameWithoutExtension(f)))
+            .Where(k => k.StartsWith(prefix, StringComparison.Ordinal))
+            .OrderBy(k => k, StringComparer.Ordinal).ToList();
+        return Task.FromResult<IReadOnlyList<string>>(keys);
+    }
 }
 
 internal static class FileUtil

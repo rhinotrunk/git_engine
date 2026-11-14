@@ -34,6 +34,8 @@ src/RhinoTrunk.Server      ASP.NET Core minimal API
 tests/RhinoTrunk.Tests     unit, engine and end-to-end HTTP tests (self-contained runner)
 samples/demo.sh            the API with curl
 samples/rhino_design_options.py  run inside Rhino 8: fills repo 'pavilion-options' with real geometry on option branches (viz testing)
+samples/rhino_option_preview.py  earlier conduit preview of the four options (superseded by TrunkCompare)
+rhino/                     Rhino 8 commands COMMIT, PULL, BRANCH, MERGE, COMPARE (+ GLSL outline conduit); see rhino/README.md
 docs/                      plan, API reference, client guide, open questions
 ```
 
@@ -41,5 +43,7 @@ docs/                      plan, API reference, client guide, open questions
 
 - [docs/PROTOTYPE_PLAN.md](docs/PROTOTYPE_PLAN.md) — steps taken, hand-off milestones for the Rhino client, next server work
 - [docs/API.md](docs/API.md) — endpoints, payloads, errors, invariants
+- [docs/CSHARP_CONVERSION_GUIDE.md](docs/CSHARP_CONVERSION_GUIDE.md) — porting the Python Rhino commands to the C# plugin
+- [docs/BACKEND_CHANGES.md](docs/BACKEND_CHANGES.md) — what the Rhino commands required from the server (branch metadata, protection, approvals, merge rules, preview)
 - [docs/CLIENT_GUIDE.md](docs/CLIENT_GUIDE.md) — mapping a RhinoDoc to entities, serialization, status/commit/checkout flows
 - [docs/OPEN_QUESTIONS.md](docs/OPEN_QUESTIONS.md) — decisions to make later, with the prototype's defaults
