@@ -52,6 +52,7 @@ docs/                      plan, API reference, client guide, open questions
 ## Documentation
 
 - [docs/PROTOTYPE_PLAN.md](docs/PROTOTYPE_PLAN.md) — steps taken, hand-off milestones for the Rhino client, next server work
+- [AGENTS.md](AGENTS.md) — for AI agents: running the engine headlessly (HTTP or inside Rhino), rules, errors
 - [docs/API.md](docs/API.md) — endpoints, payloads, errors, invariants
 - [docs/CSHARP_CONVERSION_GUIDE.md](docs/CSHARP_CONVERSION_GUIDE.md) — porting the Python Rhino commands to the C# plugin
 - [docs/BACKEND_CHANGES.md](docs/BACKEND_CHANGES.md) — what the Rhino commands required from the server (branch metadata, protection, approvals, merge rules, preview)
