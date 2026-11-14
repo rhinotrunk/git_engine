@@ -17,6 +17,16 @@ dotnet run --project src/RhinoTrunk.Server      # http://localhost:5280 ; GET / 
 
 Storage defaults to the file system (`src/RhinoTrunk.Server/data/` when started with `dotnet run`). Use `Storage__Provider=InMemory` for a throwaway server, or `Storage__Root=/path` to choose the directory.
 
+`dotnet run` listens on `localhost` only, so other machines cannot connect. To let peers on the same network reach the server, bind every interface and give them this machine's LAN address:
+
+```sh
+dotnet run --project src/RhinoTrunk.Server --urls "http://*:5280"   # peers use http://<lan-ip>:5280
+```
+
+Use the IPv4 address of the Wi-Fi adapter, not `127.0.0.1`. On macOS, `ipconfig getifaddr en0` prints it (`en0` is usually Wi-Fi). On Windows, run `ipconfig` and take the **IPv4 Address** under **Wireless LAN adapter Wi-Fi**. Skip other adapters (vEthernet, WSL, VirtualBox, and similar) and any address that starts with `169.254`.
+
+**Warning:** the server has no authentication. Anyone who can reach that address can read and write every repository. Use a LAN bind only on a network you trust. If the macOS firewall is on, allow incoming connections for `dotnet`.
+
 ## How it works
 
 - Every layer, object, material, … is an **entity** keyed by its Rhino GUID.
