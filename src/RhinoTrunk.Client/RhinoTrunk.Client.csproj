@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Typed HTTP client for the RhinoTrunk API. No dependencies; intended for the Rhino 8 plugin, the CLI and tests.</Description>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\RhinoTrunk.Contracts\RhinoTrunk.Contracts.csproj" />
+  </ItemGroup>
+</Project>

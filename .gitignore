@@ -1,0 +1,10 @@
+bin/
+obj/
+*.user
+.vs/
+.vscode/*
+!.vscode/settings.json
+data/
+*.nupkg
+TestResults/
+.DS_Store

@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>RhinoTrunk versioning engine: storage abstraction, Merkle trees, commits, validation, diff and merge.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\RhinoTrunk.Contracts\RhinoTrunk.Contracts.csproj" />
+  </ItemGroup>
+</Project>
