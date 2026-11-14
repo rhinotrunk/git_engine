@@ -155,9 +155,16 @@ public sealed partial class RhinoTrunkService(IRepositoryProvider provider, Time
         }
         if (current != request.Expected)
             throw RefConflict(full, current);
+        if (type == RefTypes.Branch && current is not null && request.Author?.Kind != AuthorKinds.Human && await IsProtectedAsync(ctx, name, ct))
+            throw Forbidden(ErrorCodes.Forbidden, $"'{name}' is protected: only a human (author.kind = human) can move it directly. Agents merge with an approval.");
+        if (request.Parent is not null && !Names.IsValidRefName(request.Parent))
+            throw RhinoTrunkException.BadRequest($"Invalid parent branch '{request.Parent}'.");
+        if (request.Author?.Id is { Length: > 0 } id) actor = id;
         var log = new RefLogEntry(full, current, request.Commit, actor, Now(), current is null ? "create" : "update");
         if (!await ctx.Store.Refs.CompareAndSwapAsync(full, current, request.Commit, log, ct))
             throw RefConflict(full, await ctx.Store.Refs.GetAsync(full, ct));
+        if (type == RefTypes.Branch && current is null)
+            await RecordBranchAsync(ctx, name, request.Parent, request.Commit, request.Author, ct);
         return ToRefInfo(full, request.Commit);
     }
 
@@ -168,9 +175,12 @@ public sealed partial class RhinoTrunkService(IRepositoryProvider provider, Time
         var full = FullRef(type, name);
         var current = await ctx.Store.Refs.GetAsync(full, ct) ?? throw RhinoTrunkException.NotFound($"{type} '{name}' not found.");
         if (current != expected) throw RefConflict(full, current);
+        if (type == RefTypes.Branch && await IsProtectedAsync(ctx, name, ct))
+            throw Forbidden(ErrorCodes.Forbidden, $"'{name}' is protected and cannot be deleted. Change the policy first.");
         var log = new RefLogEntry(full, current, null, actor, Now(), "delete");
         if (!await ctx.Store.Refs.CompareAndSwapAsync(full, current, null, log, ct))
             throw RefConflict(full, await ctx.Store.Refs.GetAsync(full, ct));
+        if (type == RefTypes.Branch) await WriteMetaAsync<BranchInfo>(ctx, BranchKeyPrefix + name, null, ct);
     }
 
     private static RhinoTrunkException RefConflict(string fullName, string? current) =>
@@ -237,7 +247,7 @@ public sealed partial class RhinoTrunkService(IRepositoryProvider provider, Time
     }
 
     /// <summary>Entity- and component-level differences. <paramref name="fromRev"/> null means the empty snapshot.</summary>
-    public async Task<DiffResponse> DiffAsync(string repo, string? fromRev, string toRev, CancellationToken ct = default)
+    public async Task<DiffResponse> DiffAsync(string repo, string? fromRev, string toRev, bool includeManifests = false, CancellationToken ct = default)
     {
         var ctx = await RepoAsync(repo, ct);
         string? fromId = string.IsNullOrEmpty(fromRev) ? null : await ResolveAsync(ctx, fromRev, ct);
@@ -246,17 +256,32 @@ public sealed partial class RhinoTrunkService(IRepositoryProvider provider, Time
         var toTree = (await ctx.RequireCommitAsync(toId, ct)).Tree;
         var changes = new List<DiffEntry>();
         foreach (var d in await ctx.Trees.DiffAsync(fromTree, toTree, ct))
-            changes.Add(await DescribeAsync(ctx, d, ct));
+            changes.Add(await DescribeAsync(ctx, d, includeManifests, ct));
         return new DiffResponse { From = fromId, To = toId, Changes = changes };
     }
 
-    private static async Task<DiffEntry> DescribeAsync(RepoContext ctx, TreeDiffEntry d, CancellationToken ct)
+    /// <summary>The best common ancestor of two revisions (null for unrelated histories).</summary>
+    public async Task<MergeBaseResponse> MergeBaseAsync(string repo, string a, string b, CancellationToken ct = default)
+    {
+        var ctx = await RepoAsync(repo, ct);
+        var ia = await ResolveAsync(ctx, a, ct);
+        var ib = await ResolveAsync(ctx, b, ct);
+        return new MergeBaseResponse { A = ia, B = ib, MergeBase = await MergeBaseAsync(ctx, ia, ib, ct) };
+    }
+
+    private static async Task<DiffEntry> DescribeAsync(RepoContext ctx, TreeDiffEntry d, bool includeManifests, CancellationToken ct)
     {
         var entry = new DiffEntry
         {
             Doc = d.Key.Doc, Kind = d.Key.Kind, Id = d.Key.Id, From = d.From, To = d.To,
             Change = d.From is null ? DiffChanges.Added : d.To is null ? DiffChanges.Deleted : DiffChanges.Modified,
         };
+        if (includeManifests)
+            entry = entry with
+            {
+                FromManifest = d.From is null ? null : await ctx.Manifests.GetAsync(d.From, ct),
+                ToManifest = d.To is null ? null : await ctx.Manifests.GetAsync(d.To, ct),
+            };
         if (d.From is null || d.To is null) return entry;
         var a = await ctx.Manifests.GetAsync(d.From, ct);
         var b = await ctx.Manifests.GetAsync(d.To, ct);

@@ -88,6 +88,28 @@ public static class MergeTakes
     public const string Theirs = "theirs";
 }
 
+public static class MergePreviewStatuses
+{
+    public const string UpToDate = "upToDate";
+    public const string FastForward = "fastForward";
+    public const string Clean = "clean";
+    public const string Conflicts = "conflicts";
+}
+
+public static class ApprovalReasons
+{
+    public const string ProtectedBranch = "protected_branch";   // the target branch is protected
+    public const string RulesApplied = "rules_applied";         // merge rules resolved conflicts
+    public const string NotBranchOwner = "not_branch_owner";    // an agent merges into a branch it did not create
+}
+
+public static class ApprovalStatuses
+{
+    public const string Active = "active";
+    public const string Used = "used";
+    public const string Stale = "stale";
+}
+
 public static class AnnotationStatuses
 {
     public const string Pending = "pending";
@@ -109,6 +131,9 @@ public static class ErrorCodes
     public const string ValidationFailed = "validation_failed";
     public const string NoChanges = "no_changes";
     public const string MergeConflict = "merge_conflict";
+    public const string Forbidden = "forbidden";                  // the author may not do this (e.g. an agent committing to a protected branch)
+    public const string ApprovalRequired = "approval_required";   // a human approval is missing
+    public const string ApprovalStale = "approval_stale";         // the approval was used, or a head moved since it was given
     public const string InternalError = "internal_error";
 
     // validation details

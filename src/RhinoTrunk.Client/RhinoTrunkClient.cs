@@ -144,8 +144,11 @@ public sealed class RhinoTrunkClient
         SendAsync<EntityVersion>(HttpMethod.Get, $"{R(repo)}/commits/{E(rev)}/entities/{E(kind)}/{E(id)}?doc={E(doc)}", null, ct);
 
     /// <summary>Differences from <paramref name="from"/> (null = empty snapshot) to <paramref name="to"/>.</summary>
-    public Task<DiffResponse> DiffAsync(string repo, string? from, string to, CancellationToken ct = default) =>
-        SendAsync<DiffResponse>(HttpMethod.Get, $"{R(repo)}/diff?to={E(to)}" + (from is null ? "" : "&from=" + E(from)), null, ct);
+    public Task<DiffResponse> DiffAsync(string repo, string? from, string to, bool includeManifests = false, CancellationToken ct = default) =>
+        SendAsync<DiffResponse>(HttpMethod.Get, $"{R(repo)}/diff?to={E(to)}" + (from is null ? "" : "&from=" + E(from)) + (includeManifests ? "&manifests=true" : ""), null, ct);
+
+    public Task<MergeBaseResponse> MergeBaseAsync(string repo, string a, string b, CancellationToken ct = default) =>
+        SendAsync<MergeBaseResponse>(HttpMethod.Get, $"{R(repo)}/merge-base?a={E(a)}&b={E(b)}", null, ct);
 
     public Task<GraphResponse> GraphAsync(string repo, int limit = 500, IEnumerable<string>? refs = null, CancellationToken ct = default)
     {
@@ -158,6 +161,38 @@ public sealed class RhinoTrunkClient
 
     public Task<MergeResponse> MergeAsync(string repo, MergeRequest request, CancellationToken ct = default) =>
         SendAsync<MergeResponse>(HttpMethod.Post, $"{R(repo)}/merges", request, ct);
+
+    /// <summary>Dry run of a merge: merged tree, conflicts, rule resolutions, approval needs and the diff to show.</summary>
+    public Task<MergePreviewResponse> PreviewMergeAsync(string repo, MergePreviewRequest request, CancellationToken ct = default) =>
+        SendAsync<MergePreviewResponse>(HttpMethod.Post, $"{R(repo)}/merges/preview", request, ct);
+
+    // ---------------------------------------------------------------- branches, policy, approvals
+
+    public Task<BranchesResponse> ListBranchesAsync(string repo, CancellationToken ct = default) =>
+        SendAsync<BranchesResponse>(HttpMethod.Get, $"{R(repo)}/branches", null, ct);
+
+    public Task<BranchInfo> GetBranchInfoAsync(string repo, string name, CancellationToken ct = default) =>
+        SendAsync<BranchInfo>(HttpMethod.Get, $"{R(repo)}/branches/{RefPath(name)}", null, ct);
+
+    public Task<BranchInfo> CreateBranchAsync(string repo, CreateBranchRequest request, CancellationToken ct = default) =>
+        SendAsync<BranchInfo>(HttpMethod.Post, $"{R(repo)}/branches", request, ct);
+
+    public Task<RepoPolicy> GetPolicyAsync(string repo, CancellationToken ct = default) =>
+        SendAsync<RepoPolicy>(HttpMethod.Get, $"{R(repo)}/policy", null, ct);
+
+    public Task<RepoPolicy> SetPolicyAsync(string repo, PolicyUpdateRequest request, CancellationToken ct = default) =>
+        SendAsync<RepoPolicy>(HttpMethod.Put, $"{R(repo)}/policy", request, ct);
+
+    public Task<ApprovalInfo> CreateApprovalAsync(string repo, ApprovalRequest request, CancellationToken ct = default) =>
+        SendAsync<ApprovalInfo>(HttpMethod.Post, $"{R(repo)}/approvals", request, ct);
+
+    public Task<ApprovalsResponse> ListApprovalsAsync(string repo, string? branch = null, string? theirs = null, CancellationToken ct = default)
+    {
+        var query = new List<string>();
+        if (branch is not null) query.Add("branch=" + E(branch));
+        if (theirs is not null) query.Add("theirs=" + E(theirs));
+        return SendAsync<ApprovalsResponse>(HttpMethod.Get, $"{R(repo)}/approvals" + (query.Count > 0 ? "?" + string.Join("&", query) : ""), null, ct);
+    }
 
     // ---------------------------------------------------------------- annotations and derived data
 

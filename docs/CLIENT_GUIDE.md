@@ -113,3 +113,13 @@ Recipe `preview-mesh.v1`: for each new geometry hash without a preview (`GetDeri
 ## 8. Agents
 
 Agents can use the same SDK, or plain HTTP (`samples/demo.sh`). Set `author.kind = "agent"` and put model, session and tool into `meta`. Agents should commit to their own branch (`agent/<task>`) and let a human merge. Notes (`kind: note`) and attribute edits need no geometry library; agents that create geometry without Rhino can produce a compatible JSON payload with rhino3dm (`CommonObject.Encode()` in Python, `encode()` in JavaScript), which `CommonObject.FromJSON` reads.
+
+## 9. Reference client and review flows
+
+`rhino/rhinotrunk.py` implements these flows in Rhino 8 Python (COMMIT, PULL, BRANCH, MERGE, COMPARE); see [rhino/README.md](../rhino/README.md). The server additions it relies on, described in [BACKEND_CHANGES.md](BACKEND_CHANGES.md):
+
+- branch metadata (`POST /branches`, parent and creator);
+- protected branches and human approvals (`/policy`, `/approvals`);
+- merge rules;
+- `POST /merges/preview`, which the review UIs draw in the conduit;
+- `diff?manifests=true`, which keeps PULL at one diff call plus one blob batch.

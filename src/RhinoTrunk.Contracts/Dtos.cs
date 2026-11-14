@@ -132,6 +132,8 @@ public sealed record CommitRequest
     public AuthorInfo Author { get; init; } = new();
     public Dictionary<string, string>? Meta { get; init; }
     public List<Change> Changes { get; init; } = [];
+    /// <summary>Only when this commit creates the branch: the branch it was split from (recorded as branch metadata).</summary>
+    public string? Parent { get; init; }
 }
 
 public sealed record CommitResponse
@@ -178,6 +180,9 @@ public sealed record DiffEntry
     public List<string>? Components { get; init; }
     public bool? RefsChanged { get; init; }
     public bool? SubtypeChanged { get; init; }
+    /// <summary>Manifests of both versions, only when requested (<c>manifests=true</c>), to save a round trip.</summary>
+    public Manifest? FromManifest { get; init; }
+    public Manifest? ToManifest { get; init; }
 }
 
 public sealed record DiffResponse
@@ -246,6 +251,10 @@ public sealed record RefUpdateRequest
     public string Commit { get; init; } = "";
     /// <summary>Current value the client expects; null means the ref must not exist yet.</summary>
     public string? Expected { get; init; }
+    /// <summary>Who moves the ref. Required (and human) to move a protected branch; recorded as the creator of a new branch.</summary>
+    public AuthorInfo? Author { get; init; }
+    /// <summary>When creating a branch: the branch it was split from.</summary>
+    public string? Parent { get; init; }
 }
 
 public sealed record MergeResolution
@@ -268,6 +277,15 @@ public sealed record MergeRequest
     public AuthorInfo Author { get; init; } = new();
     public bool NoFastForward { get; init; }
     public List<MergeResolution>? Resolutions { get; init; }
+    /// <summary>Extra rules, applied after the repository's rules (see <see cref="RepoPolicy.MergeRules"/>).</summary>
+    public List<MergeRule>? Rules { get; init; }
+    /// <summary>Apply the repository's merge rules (default true).</summary>
+    public bool? UseRepoRules { get; init; }
+    /// <summary>Id of a human approval (POST /approvals). Required when an agent merges into a protected branch,
+    /// into a branch it did not create, or when rules resolved conflicts.</summary>
+    public string? Approval { get; init; }
+    /// <summary>A human author confirms that conflicts resolved by rules may be merged.</summary>
+    public bool ApproveRuleResolutions { get; init; }
 }
 
 public sealed record MergeResponse
@@ -277,6 +295,189 @@ public sealed record MergeResponse
     public string Commit { get; init; } = "";
     public string? MergeBase { get; init; }
     public string Branch { get; init; } = "";
+    /// <summary>Conflicts that merge rules resolved.</summary>
+    public List<AutoResolution>? AutoResolved { get; init; }
+    /// <summary>The human who approved the merge, when approval was required.</summary>
+    public AuthorInfo? ApprovedBy { get; init; }
+}
+
+/// <summary>Resolves conflicts automatically. The first matching rule wins; explicit resolutions win over rules.</summary>
+public sealed record MergeRule
+{
+    public string Name { get; init; } = "";
+    /// <summary>Entity kind to match; null matches every kind.</summary>
+    public string? Kind { get; init; }
+    /// <summary>
+    /// Conflicting fields this rule may resolve ("subtype", "refs", "components.geometry", "components.attributes", ...).
+    /// A conflict matches only if all its fields are listed. Null matches every conflict of the kind,
+    /// including add/add and modify/delete conflicts, which are then resolved for the whole entity.
+    /// </summary>
+    public List<string>? Fields { get; init; }
+    /// <summary>"ours" or "theirs": the side whose value wins for the conflicting fields.</summary>
+    public string Take { get; init; } = MergeTakes.Theirs;
+}
+
+public sealed record AutoResolution
+{
+    public string Doc { get; init; } = Names.DefaultDoc;
+    public string Kind { get; init; } = "";
+    public string Id { get; init; } = "";
+    public List<string>? Fields { get; init; }
+    public string Take { get; init; } = "";
+    public string Rule { get; init; } = "";
+}
+
+public sealed record MergeConflict
+{
+    public string Doc { get; init; } = Names.DefaultDoc;
+    public string Kind { get; init; } = "";
+    public string Id { get; init; } = "";
+    public string Reason { get; init; } = "";
+    /// <summary>Conflicting manifest fields when both sides modified the entity.</summary>
+    public List<string>? Fields { get; init; }
+    /// <summary>Versions at the merge base and on each side (null = absent), so a client can draw both sides.</summary>
+    public string? Base { get; init; }
+    public string? Ours { get; init; }
+    public string? Theirs { get; init; }
+}
+
+/// <summary>Dry run of a merge. No ref moves; the merged snapshot comes back as a tree hash and a diff.</summary>
+public sealed record MergePreviewRequest
+{
+    /// <summary>Branch that would receive the merge: "ours" when <see cref="Ours"/> is null, and the target for approval rules.</summary>
+    public string? Branch { get; init; }
+    /// <summary>Any revision to merge into instead of the branch head (e.g. an older point on main).</summary>
+    public string? Ours { get; init; }
+    public string Theirs { get; init; } = "";
+    public List<MergeResolution>? Resolutions { get; init; }
+    public List<MergeRule>? Rules { get; init; }
+    public bool? UseRepoRules { get; init; }
+    /// <summary>Revision that <c>changes</c> are relative to (default: ours). Clients pass the commit their document is at.</summary>
+    public string? CompareTo { get; init; }
+    /// <summary>Include manifests in <c>changes</c>.</summary>
+    public bool Manifests { get; init; }
+    /// <summary>Who would merge; decides which approvals are required.</summary>
+    public AuthorInfo? Author { get; init; }
+    public bool NoFastForward { get; init; }
+}
+
+public sealed record DiffSummary
+{
+    public int Added { get; init; }
+    public int Modified { get; init; }
+    public int Deleted { get; init; }
+}
+
+public sealed record MergePreviewResponse
+{
+    /// <summary>"upToDate", "fastForward", "clean" (three-way, nothing unresolved) or "conflicts".</summary>
+    public string Status { get; init; } = "";
+    public string Ours { get; init; } = "";
+    public string Theirs { get; init; } = "";
+    public string? MergeBase { get; init; }
+    /// <summary>Root of the merged snapshot. Unresolved conflicts keep our version in it.</summary>
+    public string Tree { get; init; } = "";
+    /// <summary>True when a merge with the same inputs would succeed (approval aside).</summary>
+    public bool CanMerge { get; init; }
+    public bool RequiresApproval { get; init; }
+    /// <summary>"protected_branch", "rules_applied", "not_branch_owner".</summary>
+    public List<string> ApprovalReasons { get; init; } = [];
+    public List<MergeConflict> Conflicts { get; init; } = [];
+    public List<AutoResolution> AutoResolved { get; init; } = [];
+    /// <summary>Invariant violations of the merged snapshot (a merge would fail with 422).</summary>
+    public List<ApiErrorDetail> Validation { get; init; } = [];
+    /// <summary>What the merge changes on "ours".</summary>
+    public DiffSummary Incoming { get; init; } = new();
+    public string CompareTo { get; init; } = "";
+    /// <summary>Entity changes from <see cref="CompareTo"/> to the merged snapshot.</summary>
+    public List<DiffEntry> Changes { get; init; } = [];
+}
+
+public sealed record MergeBaseResponse
+{
+    public string A { get; init; } = "";
+    public string B { get; init; } = "";
+    public string? MergeBase { get; init; }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Branches, policy and approvals
+// ---------------------------------------------------------------------------------------------
+
+/// <summary>A branch with the metadata the server records when it is created.</summary>
+public sealed record BranchInfo
+{
+    public string Name { get; init; } = "";
+    public string Commit { get; init; } = "";
+    /// <summary>The branch this one was split from; MERGE targets it by default.</summary>
+    public string? Parent { get; init; }
+    /// <summary>The commit the branch was created at (null when its first commit created it).</summary>
+    public string? Base { get; init; }
+    public AuthorInfo? CreatedBy { get; init; }
+    public DateTimeOffset? Created { get; init; }
+    public bool Protected { get; init; }
+}
+
+public sealed record BranchesResponse
+{
+    public List<BranchInfo> Branches { get; init; } = [];
+}
+
+public sealed record CreateBranchRequest
+{
+    public string Name { get; init; } = "";
+    /// <summary>Revision to start at (commit, branch or tag).</summary>
+    public string From { get; init; } = Names.DefaultBranch;
+    /// <summary>Default: <see cref="From"/> when it names a branch.</summary>
+    public string? Parent { get; init; }
+    public AuthorInfo Author { get; init; } = new();
+}
+
+public sealed record RepoPolicy
+{
+    /// <summary>Agents cannot commit to these branches, and every merge into them needs a human approval.</summary>
+    public List<string> ProtectedBranches { get; init; } = [Names.DefaultBranch];
+    public List<MergeRule> MergeRules { get; init; } = [];
+}
+
+public sealed record PolicyUpdateRequest
+{
+    public List<string> ProtectedBranches { get; init; } = [Names.DefaultBranch];
+    public List<MergeRule> MergeRules { get; init; } = [];
+    /// <summary>Must be a human.</summary>
+    public AuthorInfo Author { get; init; } = new();
+}
+
+/// <summary>A human's approval to merge one exact pair of heads. Stale as soon as either side moves; used once.</summary>
+public sealed record ApprovalRequest
+{
+    public string Branch { get; init; } = Names.DefaultBranch;
+    public string Theirs { get; init; } = "";
+    public AuthorInfo By { get; init; } = new();
+    public string? Note { get; init; }
+}
+
+public sealed record ApprovalInfo
+{
+    public string Id { get; init; } = "";
+    public string Branch { get; init; } = "";
+    /// <summary>Branch head and theirs commit at approval time.</summary>
+    public string Ours { get; init; } = "";
+    public string Theirs { get; init; } = "";
+    /// <summary>"theirs" as the approver named it (usually a branch).</summary>
+    public string TheirsRef { get; init; } = "";
+    public AuthorInfo By { get; init; } = new();
+    public string? Note { get; init; }
+    public DateTimeOffset Timestamp { get; init; }
+    /// <summary>"active", "used" or "stale" (computed when read).</summary>
+    public string Status { get; init; } = ApprovalStatuses.Active;
+    /// <summary>The commit the branch moved to with this approval.</summary>
+    public string? UsedBy { get; init; }
+}
+
+public sealed record ApprovalsResponse
+{
+    public List<ApprovalInfo> Approvals { get; init; } = [];
 }
 
 // ---------------------------------------------------------------------------------------------

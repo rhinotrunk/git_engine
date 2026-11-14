@@ -186,7 +186,7 @@ public sealed class ApiTests
         var layerId = Guid.NewGuid().ToString();
         var body = new JsonObject
         {
-            ["branch"] = "main",
+            ["branch"] = "agent/py",
             ["expectedHead"] = null,
             ["message"] = "init from raw JSON",
             ["author"] = new JsonObject { ["id"] = "agent:py", ["kind"] = "agent" },

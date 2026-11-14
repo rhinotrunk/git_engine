@@ -44,6 +44,18 @@ public interface IDerivedStore
     Task<DerivedRecord?> GetAsync(string source, string recipe, CancellationToken ct = default);
 }
 
+/// <summary>
+/// Small mutable JSON documents that are not part of any snapshot: branch metadata ("branch/&lt;name&gt;"),
+/// the repository policy ("policy") and merge approvals ("approval/&lt;id&gt;"). Keys may contain '/'.
+/// </summary>
+public interface IMetaStore
+{
+    Task<byte[]?> GetAsync(string key, CancellationToken ct = default);
+    /// <summary>Null deletes.</summary>
+    Task SetAsync(string key, byte[]? value, CancellationToken ct = default);
+    Task<IReadOnlyList<string>> ListAsync(string prefix, CancellationToken ct = default);
+}
+
 public interface IRepositoryStore
 {
     string Name { get; }
@@ -52,6 +64,7 @@ public interface IRepositoryStore
     IRefStore Refs { get; }
     IAnnotationStore Annotations { get; }
     IDerivedStore Derived { get; }
+    IMetaStore Meta { get; }
 }
 
 public interface IRepositoryProvider

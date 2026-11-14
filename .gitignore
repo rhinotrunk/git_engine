@@ -8,3 +8,4 @@ data/
 *.nupkg
 TestResults/
 .DS_Store
+__pycache__/
