@@ -33,6 +33,7 @@ src/RhinoTrunk.Core        engine: storage abstraction + implementations, trees,
 src/RhinoTrunk.Server      ASP.NET Core minimal API
 tests/RhinoTrunk.Tests     unit, engine and end-to-end HTTP tests (self-contained runner)
 samples/demo.sh            the API with curl
+samples/rhino_design_options.py  run inside Rhino 8: fills repo 'pavilion-options' with real geometry on option branches (viz testing)
 docs/                      plan, API reference, client guide, open questions
 ```
 
